@@ -1,0 +1,417 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+enum WhatsappStatus {
+  ACTIVE
+  DISCONNECTED
+}
+
+enum ConversationStatus {
+  OPEN
+  NEEDS_HUMAN
+  CLOSED
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+  STAFF
+  SYSTEM
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  INTERESTED
+  WON
+  LOST
+}
+
+enum KnowledgeKind {
+  UPLOAD
+  FAQ
+  NOTE
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum AuthTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFY
+}
+
+enum UsageType {
+  WHATSAPP_INBOUND
+  WHATSAPP_OUTBOUND
+  AI_INPUT_TOKENS
+  AI_OUTPUT_TOKENS
+}
+
+// ---------- Platform level (not tenant scoped) ----------
+
+model User {
+  id            String       @id @default(cuid())
+  name          String
+  email         String       @unique
+  passwordHash  String
+  // Bumped on password change or reset so every older login token stops working.
+  tokenVersion  Int          @default(0)
+  emailVerifiedAt DateTime?
+  // Email me when a customer needs a person.
+  notifyNeedsHuman Boolean    @default(true)
+  createdAt     DateTime     @default(now())
+  memberships   TeamMember[]
+  assigned      Conversation[]
+  authTokens    AuthToken[]
+  notes         ConversationNote[]
+}
+
+model Business {
+  id          String   @id @default(cuid())
+  name        String
+  industry    String?
+  email       String?
+  phone       String?
+  timezone    String   @default("UTC")
+  description String?
+  address     String?
+  openingHours String?
+  // Billing is out of scope for now; this only labels the account.
+  plan        String   @default("free")
+  // Max AI tokens per UTC day. Null uses the server default; 0 means no limit.
+  dailyAiTokenLimit Int?
+  createdAt   DateTime @default(now())
+
+  members     TeamMember[]
+  whatsapp    WhatsappAccount[]
+  customers   Customer[]
+  conversations Conversation[]
+  messages    Message[]
+  convNotes   ConversationNote[]
+  gaps        KnowledgeGap[]
+  leads       Lead[]
+  agent       AiAgent?
+  services    Service[]
+  availability AvailabilityRule[]
+  appointments Appointment[]
+  documents   KnowledgeDocument[]
+  chunks      KnowledgeChunk[]
+  usage       UsageRecord[]
+  audit       AuditLog[]
+}
+
+// ---------- Tenant scoped: every row carries businessId ----------
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  role       Role
+  createdAt  DateTime @default(now())
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([userId])
+}
+
+model WhatsappAccount {
+  id                String         @id @default(cuid())
+  businessId        String
+  displayPhone      String
+  // Globally unique: this is how an incoming webhook is routed to a business.
+  phoneNumberId     String         @unique
+  businessAccountId String
+  accessTokenEnc    String
+  verifiedName      String?
+  // Set by Embedded Signup. Manual connections leave registered true because those numbers already work.
+  registered        Boolean        @default(true)
+  webhookSubscribed Boolean        @default(false)
+  tokenExpiresAt    DateTime?
+  pinEnc            String?
+  setupError        String?
+  status            WhatsappStatus @default(ACTIVE)
+  createdAt         DateTime       @default(now())
+
+  business          Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversations     Conversation[]
+
+  @@index([businessId])
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String?
+  phone      String
+  email      String?
+  tags       String[]
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  leads         Lead[]
+  appointments  Appointment[]
+
+  @@unique([businessId, phone])
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  businessId    String
+  customerId    String
+  status        ConversationStatus @default(OPEN)
+  aiEnabled     Boolean            @default(true)
+  assignedToId  String?
+  lastMessageAt DateTime           @default(now())
+  // Set while one worker is generating a reply. Expires on its own if that worker dies.
+  aiLockedAt    DateTime?
+  // Which of the business's numbers the customer wrote to, so replies go out from the same one.
+  whatsappAccountId String?
+  createdAt     DateTime           @default(now())
+
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo User?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  whatsappAccount WhatsappAccount? @relation(fields: [whatsappAccountId], references: [id], onDelete: SetNull)
+  messages   Message[]
+  notes      ConversationNote[]
+  gaps       KnowledgeGap[]
+
+  @@index([businessId, status, lastMessageAt])
+  @@index([customerId])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  businessId     String
+  conversationId String
+  sender         MessageSender
+  body           String
+  messageType    String        @default("text")
+  waMessageId    String?
+  // sent, delivered, read or failed. Updated from WhatsApp status webhooks.
+  deliveryStatus String?
+  deliveryError  String?
+  // Staff rating of an AI reply: "up" or "down", with an optional note on what was wrong.
+  feedback       String?
+  feedbackNote   String?
+  feedbackAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Meta can deliver the same webhook more than once; this makes ingestion idempotent.
+  @@unique([businessId, waMessageId])
+  @@index([conversationId, createdAt])
+}
+
+// Internal team notes on a conversation. Never sent to the customer.
+model ConversationNote {
+  id             String   @id @default(cuid())
+  businessId     String
+  conversationId String
+  authorId       String?
+  body           String
+  createdAt      DateTime @default(now())
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+}
+
+// A question the AI could not answer from the business's information. The owner can turn these into FAQs.
+model KnowledgeGap {
+  id             String   @id @default(cuid())
+  businessId     String
+  conversationId String
+  question       String
+  status         String   @default("open") // open, resolved or dismissed
+  createdAt      DateTime @default(now())
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status, createdAt])
+}
+
+// One-time links for password reset and email verification. Only a hash is stored.
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  businessId String
+  customerId String
+  status     LeadStatus @default(NEW)
+  source     String     @default("whatsapp")
+  interest   String?
+  notes      String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+}
+
+// Structured so prices always come from here, never from a model's memory.
+model Service {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @default("USD")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([businessId])
+}
+
+// Weekly bookable times, in the business's time zone. One row per slot start.
+model AvailabilityRule {
+  id          String   @id @default(cuid())
+  businessId  String
+  dayOfWeek   Int      // 0 = Sunday
+  startTime   String   // "HH:MM"
+  durationMin Int      @default(60)
+  capacity    Int      @default(1)
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, dayOfWeek])
+}
+
+model Appointment {
+  id         String            @id @default(cuid())
+  businessId String
+  customerId String
+  serviceId  String?
+  startsAt   DateTime
+  endsAt     DateTime
+  status     AppointmentStatus @default(CONFIRMED)
+  notes      String?
+  source     String            @default("ai")
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer   Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  service    Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, startsAt])
+  @@index([customerId])
+}
+
+model AiAgent {
+  id           String   @id @default(cuid())
+  businessId   String   @unique
+  name         String   @default("Assistant")
+  tone         String   @default("friendly")
+  instructions String   @default("")
+  rules        String[]
+  active       Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeDocument {
+  id         String        @id @default(cuid())
+  businessId String
+  name       String
+  kind       KnowledgeKind @default(UPLOAD)
+  fileUrl    String?
+  content    String?
+  status     String        @default("processing")
+  error      String?
+  createdAt  DateTime @default(now())
+
+  business   Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  chunks     KnowledgeChunk[]
+
+  @@index([businessId])
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  businessId String
+  documentId String
+  content    String
+  // Written and queried with raw SQL (pgvector). Always filter by businessId.
+  embedding  Unsupported("vector(1536)")?
+
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model UsageRecord {
+  id         String    @id @default(cuid())
+  businessId String
+  type       UsageType
+  quantity   Int
+  createdAt  DateTime  @default(now())
+
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, type, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String?
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+}

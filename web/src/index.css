@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Figtree", system-ui, sans-serif;
+  --color-paper: #fbfafd;
+  --color-ink: #1b1633;
+  --color-muted: #6e6a85;
+  --color-line: #e7e3f2;
+  --color-violet: #5b3fd1;
+  --color-violet-d: #46309f;
+  --color-violet-s: #efebfc;
+  --color-amber: #e9a82f;
+  --color-amber-s: #fff3d6;
+  --color-green: #1e8f5a;
+  --color-green-s: #ddf3e7;
+  --color-red: #c93b55;
+  --color-red-s: #fbe3e8;
+  --color-bubble: #dff4e6;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ---- marketing site animations (all switched off for people who prefer reduced motion, see above) ---- */
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes float-a { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-14px) rotate(1.5deg); } }
+@keyframes float-b { 0%, 100% { transform: translateY(0) rotate(2deg); } 50% { transform: translateY(12px) rotate(-1.5deg); } }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes blob { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(34px, -22px) scale(1.1); } }
+@keyframes swap-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
