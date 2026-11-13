@@ -54,10 +54,10 @@ export default function AnalyticsPage() {
         { k: "Appointments booked", v: t?.appointments, hint: t ? `${t.appointmentsByAi} by the AI` : undefined },
       ]} />
       <Tiles items={[
-        { k: "Handled by the AI alone", v: d && pct(d.rates.aiResolvedShare), hint: "No staff reply needed" },
-        { k: "Needed a person", v: d && pct(d.rates.handedToPeopleShare) },
-        { k: "Median first reply", v: d && dur(d.firstResponse.medianSeconds), hint: d ? `from ${d.firstResponse.sample} recent chats` : undefined },
-        { k: "Leads won", v: d && pct(d.rates.winRate), hint: t ? `${t.leadsWon} of ${t.leads}` : undefined },
+        { k: "Handled by the AI alone", v: d ? pct(d.rates.aiResolvedShare) : undefined, hint: "No staff reply needed" },
+        { k: "Needed a person", v: d ? pct(d.rates.handedToPeopleShare) : undefined },
+        { k: "Median first reply", v: d ? dur(d.firstResponse.medianSeconds) : undefined, hint: d ? `from ${d.firstResponse.sample} recent chats` : undefined },
+        { k: "Leads won", v: d ? pct(d.rates.winRate) : undefined, hint: t ? `${t.leadsWon} of ${t.leads}` : undefined },
       ]} />
 
       {d && d.totals.conversations === 0 && <EmptyState title="No conversations in this period yet">Numbers appear here as customers start messaging you.</EmptyState>}
