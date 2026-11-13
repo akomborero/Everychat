@@ -1,0 +1,20 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const node_test_1 = __importDefault(require("node:test"));
+const strict_1 = __importDefault(require("node:assert/strict"));
+const node_crypto_1 = __importDefault(require("node:crypto"));
+const signature_1 = require("./signature");
+const secret = "app-secret";
+const body = Buffer.from('{"entry":[{"changes":[]}]}');
+const sign = (b, s = secret) => "sha256=" + node_crypto_1.default.createHmac("sha256", s).update(b).digest("hex");
+(0, node_test_1.default)("accepts a correct signature", () => strict_1.default.equal((0, signature_1.validSignature)(body, sign(body), secret), true));
+(0, node_test_1.default)("rejects a changed body", () => strict_1.default.equal((0, signature_1.validSignature)(Buffer.from('{"entry":[]}'), sign(body), secret), false));
+(0, node_test_1.default)("rejects the wrong secret", () => strict_1.default.equal((0, signature_1.validSignature)(body, sign(body, "other"), secret), false));
+(0, node_test_1.default)("rejects a missing header", () => strict_1.default.equal((0, signature_1.validSignature)(body, undefined, secret), false));
+(0, node_test_1.default)("rejects a header without the sha256= prefix", () => strict_1.default.equal((0, signature_1.validSignature)(body, sign(body).slice(7), secret), false));
+(0, node_test_1.default)("rejects a signature of the wrong length", () => strict_1.default.equal((0, signature_1.validSignature)(body, "sha256=abcd", secret), false));
+(0, node_test_1.default)("rejects everything when the secret is empty", () => strict_1.default.equal((0, signature_1.validSignature)(body, sign(body, ""), ""), false));
+(0, node_test_1.default)("whitespace changes in the body invalidate it (raw bytes matter)", () => strict_1.default.equal((0, signature_1.validSignature)(Buffer.from(body.toString() + " "), sign(body), secret), false));

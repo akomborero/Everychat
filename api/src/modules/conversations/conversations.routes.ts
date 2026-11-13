@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { tenantDb } from "../../lib/prisma";
@@ -56,7 +56,7 @@ conversationRoutes.get(
 
 conversationRoutes.get(
   "/:id/messages",
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = tenantDb(req.auth!.businessId);
     const conversation = await db.conversation.findFirst({ where: { id: req.params.id }, include: { customer: true, assignedTo: assignee, whatsappAccount: { select: { displayPhone: true } } } });
     if (!conversation) throw new AppError(404, "Conversation not found");
@@ -70,7 +70,7 @@ conversationRoutes.post(
   "/:id/messages",
   canReply,
   perBusiness(300, MINUTE),
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const { text } = z.object({ text: z.string().trim().min(1).max(4000) }).parse(req.body);
     const { businessId, userId } = req.auth!;
     const db = tenantDb(businessId);
@@ -93,7 +93,7 @@ conversationRoutes.post(
   }),
 );
 
-async function mustFind(req: { auth?: { businessId: string }; params: { id: string } }) {
+async function mustFind(req: Request<{ id: string }>) {
   const db = tenantDb(req.auth!.businessId);
   const c = await db.conversation.findFirst({ where: { id: req.params.id }, select: { id: true } });
   if (!c) throw new AppError(404, "Conversation not found");
@@ -103,7 +103,7 @@ async function mustFind(req: { auth?: { businessId: string }; params: { id: stri
 conversationRoutes.post(
   "/:id/takeover",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = await mustFind(req);
     const conversation = await db.conversation.update({ where: { id: req.params.id }, data: { aiEnabled: false, status: "OPEN", assignedToId: req.auth!.userId } });
     res.json({ conversation });
@@ -113,7 +113,7 @@ conversationRoutes.post(
 conversationRoutes.post(
   "/:id/handback",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = await mustFind(req);
     const conversation = await db.conversation.update({ where: { id: req.params.id }, data: { aiEnabled: true, status: "OPEN", assignedToId: null } });
     res.json({ conversation });
@@ -123,7 +123,7 @@ conversationRoutes.post(
 conversationRoutes.put(
   "/:id/assign",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const { userId } = z.object({ userId: z.string().min(1).nullable() }).parse(req.body);
     const db = await mustFind(req);
     if (userId && !(await db.teamMember.findFirst({ where: { userId }, select: { id: true } }))) throw new AppError(400, "That person is not on your team");
@@ -136,7 +136,7 @@ conversationRoutes.put(
 conversationRoutes.post(
   "/:id/close",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = await mustFind(req);
     const conversation = await db.conversation.update({ where: { id: req.params.id }, data: { status: "CLOSED" } });
     res.json({ conversation });
@@ -146,7 +146,7 @@ conversationRoutes.post(
 conversationRoutes.post(
   "/:id/reopen",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = await mustFind(req);
     const conversation = await db.conversation.update({ where: { id: req.params.id }, data: { status: "OPEN" } });
     res.json({ conversation });
@@ -157,7 +157,7 @@ conversationRoutes.post(
 
 conversationRoutes.get(
   "/:id/notes",
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const db = await mustFind(req);
     const notes = await db.conversationNote.findMany({ where: { conversationId: req.params.id }, orderBy: { createdAt: "asc" }, include: { author: assignee } });
     res.json({ notes });
@@ -167,7 +167,7 @@ conversationRoutes.get(
 conversationRoutes.post(
   "/:id/notes",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string }>(async (req, res) => {
     const { body } = z.object({ body: z.string().trim().min(1).max(2000) }).parse(req.body);
     const db = await mustFind(req);
     const note = await db.conversationNote.create({
@@ -181,7 +181,7 @@ conversationRoutes.post(
 conversationRoutes.delete(
   "/:id/notes/:noteId",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string; noteId: string }>(async (req, res) => {
     const db = await mustFind(req);
     const note = await db.conversationNote.findFirst({ where: { id: req.params.noteId, conversationId: req.params.id } });
     if (!note) throw new AppError(404, "Note not found");
@@ -197,7 +197,7 @@ conversationRoutes.delete(
 conversationRoutes.put(
   "/:id/messages/:messageId/feedback",
   canReply,
-  ah(async (req, res) => {
+  ah<{ id: string; messageId: string }>(async (req, res) => {
     const d = z.object({ rating: z.enum(["up", "down"]).nullable(), note: z.string().trim().max(500).optional() }).parse(req.body);
     const db = await mustFind(req);
     const msg = await db.message.findFirst({ where: { id: req.params.messageId, conversationId: req.params.id, sender: "AI" }, select: { id: true } });
