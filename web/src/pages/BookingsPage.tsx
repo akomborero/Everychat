@@ -29,7 +29,7 @@ export default function BookingsPage() {
 
   return (
     <>
-      <PageHeader title="Bookings" subtitle="The AI books customers into the times you open up here." />
+      <PageHeader title="Bookings" subtitle="See appointments and choose the time slots customers can book with the AI." />
       <div className="mb-6 flex gap-1 border-b border-line">
         {([["appointments", "Appointments"], ["times", "Available times"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setParams(k === "times" ? { tab: "times" } : {})} className={cn("-mb-px border-b-2 px-4 py-2.5 font-semibold", tab === k ? "border-violet text-violet" : "border-transparent text-muted hover:text-ink")}>{label}</button>
@@ -124,7 +124,11 @@ function Times({ tz, canEdit }: { tz: string; canEdit: boolean }) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <p className="text-muted">Add the start time of every slot customers can book. Times are in <b className="text-ink">{tz}</b>. You can change the time zone under Knowledge, Business info.</p>
+      <div className="rounded-xl bg-violet-s p-4 text-sm">
+        <p className="font-semibold text-violet-d">How this works</p>
+        <p className="mt-1">These are the specific appointment times the AI can offer to customers (for example 9:00, 10:00, 11:00). This is different from your general opening hours in <b>What your AI should know</b>. Times are shown in <b>{tz}</b>.</p>
+      </div>
+      <p className="text-muted">Add the start time of each slot customers can book. If you don't take appointments, you can leave this empty.</p>
       {canEdit && (
         <div className="grid max-w-md grid-cols-2 gap-4">
           <Field label="Length of each slot (minutes)"><Input type="number" min={10} max={480} value={duration} onChange={(e) => { setDuration(Number(e.target.value)); setDirty(true); }} /></Field>

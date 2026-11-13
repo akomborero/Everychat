@@ -47,24 +47,25 @@ export default function AuthPage({ mode }: { mode: "login" | "register" }) {
       <section className="flex items-center justify-center px-5 py-10">
         <form onSubmit={submit} className="w-full max-w-md space-y-4">
           <div className="lg:hidden"><Logo /></div>
-          <h2 className="pt-2 text-3xl font-extrabold">{isRegister ? "Create your workspace" : "Welcome back"}</h2>
+          <h2 className="pt-2 text-3xl font-extrabold">{isRegister ? "Create your account" : "Welcome back"}</h2>
+          <p className="text-muted">{isRegister ? "Set up your business in a few minutes. You can connect WhatsApp and teach your AI assistant right after." : "Sign in to manage your WhatsApp messages, customers and AI assistant."}</p>
           {error && <ErrorNote>{error}</ErrorNote>}
 
           {isRegister && (
             <>
-              <Field label="Your name" error={fe("name")}><Input name="name" required autoComplete="name" /></Field>
-              <Field label="Business name" error={fe("businessName")}><Input name="businessName" required /></Field>
-              <Field label="Type of business" hint="Optional. What your business does, in a few words." error={fe("industry")}><Input name="industry" /></Field>
+              <Field label="Your name" error={fe("name")}><Input name="name" required autoComplete="name" placeholder="e.g. Jane Smith" /></Field>
+              <Field label="Business name" error={fe("businessName")}><Input name="businessName" required placeholder="e.g. Jane's Salon" /></Field>
+              <Field label="Type of business" hint="Optional. Helps us tailor your setup." error={fe("industry")}><Input name="industry" placeholder="e.g. Salon, restaurant, clinic" /></Field>
             </>
           )}
-          <Field label="Email" error={fe("email")}><Input name="email" type="email" required autoComplete="email" /></Field>
+          <Field label="Email address" error={fe("email")}><Input name="email" type="email" required autoComplete="email" placeholder="name@example.com" /></Field>
           {isRegister && <Field label="Phone number" hint="Optional" error={fe("phone")}><Input name="phone" type="tel" autoComplete="tel" /></Field>}
           <Field label="Password" hint={isRegister ? "At least 8 characters" : undefined} error={fe("password")}>
             <Input name="password" type="password" required minLength={isRegister ? 8 : 1} autoComplete={isRegister ? "new-password" : "current-password"} />
           </Field>
 
           {!isRegister && <div className="-mt-1 text-right"><Link to="/forgot-password" className="text-sm font-semibold text-violet hover:underline">Forgot your password?</Link></div>}
-          <Button type="submit" loading={busy} className="w-full">{isRegister ? "Start free" : "Sign in"}</Button>
+          <Button type="submit" loading={busy} className="w-full">{isRegister ? "Create account" : "Sign in"}</Button>
           {isRegister && <p className="text-center text-sm text-muted">By creating an account you agree to our <Link to="/terms" className="font-semibold text-violet hover:underline">Terms</Link> and <Link to="/privacy" className="font-semibold text-violet hover:underline">Privacy Policy</Link>.</p>}
           <p className="text-center text-muted">
             {isRegister ? "Already have an account?" : "New here?"}{" "}

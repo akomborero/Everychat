@@ -106,19 +106,19 @@ function TeamTab({ canManage }: { canManage: boolean }) {
       {canManage && (
         <section>
           <h2 className="mb-1 text-xl font-bold">Add a team member</h2>
-          <p className="mb-4 text-muted">Set a first password and share it with them. They can change it under Your account. Each person can belong to one business for now.</p>
+          <p className="mb-4 text-muted">Create an account for someone on your team so they can sign in. Choose a temporary password and share it with them securely (for example in person or by message). They can change it later in Settings &gt; Your account.</p>
           <form onSubmit={add} className="space-y-4">
-            <Field label="Name"><Input name="name" required /></Field>
-            <Field label="Email"><Input name="email" type="email" required /></Field>
-            <Field label="First password" hint="At least 8 characters"><Input name="password" type="text" required minLength={8} autoComplete="off" /></Field>
-            <Field label="Role">
+            <Field label="Full name"><Input name="name" required placeholder="e.g. Sarah Johnson" /></Field>
+            <Field label="Email address"><Input name="email" type="email" required placeholder="name@example.com" /></Field>
+            <Field label="Temporary password" hint="At least 8 characters. Share this with them so they can sign in."><Input name="password" type="text" required minLength={8} autoComplete="off" /></Field>
+            <Field label="What can they do?" hint="You can change this later.">
               <Select name="role" defaultValue="STAFF">
-                {isOwner && <option value="ADMIN">Admin: {ROLE_HELP.ADMIN}</option>}
-                <option value="STAFF">Staff: {ROLE_HELP.STAFF}</option>
-                <option value="VIEWER">Viewer: {ROLE_HELP.VIEWER}</option>
+                {isOwner && <option value="ADMIN">Admin: can manage settings, knowledge and team</option>}
+                <option value="STAFF">Staff: can reply to chats and manage customers, leads and bookings</option>
+                <option value="VIEWER">Viewer: can look but not change anything</option>
               </Select>
             </Field>
-            <Button type="submit" loading={busy}>Add member</Button>
+            <Button type="submit" loading={busy}>Add team member</Button>
           </form>
         </section>
       )}
@@ -132,15 +132,15 @@ function UsageTab() {
   const u = useApi<Usage>(`/usage?days=${days}`);
   const nf = (n: number) => n.toLocaleString();
   const tiles = u.data && [
-    { k: "WhatsApp messages received", v: u.data.whatsappInbound },
-    { k: "WhatsApp messages sent", v: u.data.whatsappOutbound },
-    { k: "AI input tokens", v: u.data.aiInputTokens },
-    { k: "AI output tokens", v: u.data.aiOutputTokens },
+    { k: "Messages received from customers", v: u.data.whatsappInbound },
+    { k: "Messages sent to customers", v: u.data.whatsappOutbound },
+    { k: "AI usage (reading)", v: u.data.aiInputTokens, hint: "How much the AI read to understand messages" },
+    { k: "AI usage (writing)", v: u.data.aiOutputTokens, hint: "How much the AI wrote in replies" },
   ];
   return (
     <div className="max-w-3xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-md text-muted">What your account has used. This is what WhatsApp and AI costs are based on.</p>
+        <p className="max-w-md text-muted">A summary of how much your account has used. This helps you understand messaging and AI activity.</p>
         <div className="flex gap-2">
           {[7, 30, 90].map((d) => (
             <button key={d} onClick={() => setDays(d)} className={cn("rounded-full border px-3.5 py-1.5 text-sm font-medium", days === d ? "border-violet bg-violet text-white" : "border-line bg-white hover:bg-violet-s")}>{d} days</button>
@@ -154,7 +154,8 @@ function UsageTab() {
           {tiles.map((t, i) => (
             <div key={t.k} className={cn("py-5 pr-4", i % 2 === 1 && "border-l border-line pl-5", i >= 2 && "border-t border-line")}>
               <div className="font-display text-4xl font-extrabold tracking-tight">{nf(t.v)}</div>
-              <div className="text-sm text-muted">{t.k}</div>
+              <div className="text-sm font-medium">{t.k}</div>
+              {"hint" in t && t.hint && <div className="mt-0.5 text-xs text-muted">{t.hint}</div>}
             </div>
           ))}
         </div>

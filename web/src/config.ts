@@ -1,5 +1,5 @@
-// Working name only. Change it here and in index.html.
-export const BRAND_NAME = "AI Desk";
+// Brand name used across the app. Change it here and in index.html.
+export const BRAND_NAME = "Everychat";
 // Shown on the public pages and in the legal documents. Set these in apps/web/.env before launch.
 export const COMPANY_NAME: string = import.meta.env.VITE_COMPANY_NAME || BRAND_NAME;
 export const CONTACT_EMAIL: string = import.meta.env.VITE_CONTACT_EMAIL || "";

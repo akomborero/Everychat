@@ -63,36 +63,46 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
 
       {phase.kind !== "done" && (
         <section className="rounded-2xl border border-line bg-white p-6">
-          <h2 className="text-2xl font-extrabold">{hasActive ? "Connect another number" : "Connect your WhatsApp number"}</h2>
-          <p className="mt-1.5 text-muted">Your customers message this number. The AI answers for you. It takes about two minutes.</p>
+          <h2 className="text-2xl font-extrabold">{hasActive ? "Connect another WhatsApp number" : "Connect your WhatsApp Business number"}</h2>
+          <p className="mt-1.5 text-muted">This is the number your customers message you on. Once connected, Everychat can reply for you and your team can take over anytime. It usually takes a couple of minutes.</p>
 
           {cfg.loading && <Skeleton className="mt-5 h-12" />}
 
           {cfg.data?.enabled && canEdit && (
             <>
+              <div className="mt-5 rounded-xl bg-violet-s p-4 text-sm">
+                <p className="font-semibold text-violet-d">Before you start</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-ink">
+                  <li>Use a phone number that is <b>not</b> currently being used in the WhatsApp or WhatsApp Business app.</li>
+                  <li>Have access to that number so you can receive a text or phone call to confirm it.</li>
+                  <li>After connecting, you will need to add a payment method in WhatsApp Manager (we'll remind you).</li>
+                </ul>
+              </div>
               <ol className="mt-5 space-y-3">
-                {["Sign in with Facebook", "Choose or create your WhatsApp Business account", "Enter your number and confirm the code we text or call you with", "Done. Your AI can start replying"].map((t, i) => (
-                  <li key={t} className="flex items-center gap-3"><span className="grid size-7 flex-none place-items-center rounded-full bg-violet-s text-sm font-bold text-violet-d">{i + 1}</span>{t}</li>
+                {["Click Connect WhatsApp and sign in with Facebook in the window that opens.", "Choose or create your WhatsApp Business account and select the number.", "Confirm the number with the code sent to you by text or call.", "Come back here. We'll finish setup and show you what to do next."].map((t, i) => (
+                  <li key={t} className="flex items-start gap-3"><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full bg-violet-s text-sm font-bold text-violet-d">{i + 1}</span><span>{t}</span></li>
                 ))}
               </ol>
               <Button className="mt-6 w-full sm:w-auto" onClick={connect} disabled={busy || sdk !== "ready"}>
                 {busy ? <Spinner /> : <MessageCircle size={18} />}
                 {phase.kind === "authorizing" ? "Finish in the Facebook window…" : phase.kind === "finishing" ? "Setting up your number…" : sdk === "loading" ? "Getting ready…" : "Connect WhatsApp"}
               </Button>
-              {sdk === "failed" && <div className="mt-3"><ErrorNote>{sdkError}</ErrorNote></div>}
+              {sdk === "failed" && <div className="mt-3"><ErrorNote>{sdkError ?? "We couldn't load the Facebook connection window. Check your internet connection, allow pop-ups for this site, and try again."}</ErrorNote></div>}
               {phase.kind === "problem" && (
-                <div className="mt-4"><ErrorNote>{phase.message}</ErrorNote><p className="mt-2 text-sm text-muted">Nothing was saved. You can try again.</p></div>
+                <div className="mt-4"><ErrorNote>{phase.message}</ErrorNote><p className="mt-2 text-sm text-muted">Nothing was saved. You can try again. If it keeps happening, contact support or the person who set up Everychat for your business.</p></div>
               )}
-              <p className="mt-5 text-sm text-muted">Use a number that isn't currently active in the WhatsApp or WhatsApp Business app. We never see your WhatsApp password.</p>
+              <p className="mt-5 text-sm text-muted">We never see your WhatsApp password. This uses Meta's official secure connection.</p>
             </>
           )}
 
           {cfg.data && !cfg.data.enabled && (
-            <div className="mt-5 rounded-xl bg-amber-s p-4 text-sm">
-              <b>One-click connect isn't switched on for this server yet.</b> The server owner needs to add the Meta app ID and Embedded Signup configuration ID. Until then, use the advanced option below.
+            <div className="mt-5 space-y-3 rounded-xl bg-amber-s p-4 text-sm">
+              <p className="font-semibold">One-click WhatsApp connection isn't ready yet</p>
+              <p>Before a business owner can connect a number here, Everychat must be connected to Meta's WhatsApp service and approved by Meta. If you set up Everychat yourself, complete the WhatsApp setup steps in your deployment guide and add your Meta app details to the server. If someone else manages it for you, please ask them to finish the WhatsApp connection setup.</p>
+              <p className="text-muted">Once that's done, this page will show a "Connect WhatsApp" button and you won't need any technical steps.</p>
             </div>
           )}
-          {!canEdit && <p className="mt-4 text-muted">Only owners and admins can connect numbers.</p>}
+          {!canEdit && <p className="mt-4 text-muted">Only owners and admins can connect WhatsApp numbers. Please ask them to do this step.</p>}
         </section>
       )}
 
@@ -100,7 +110,7 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
         <h2 className="mb-3 text-xl font-bold">Connected numbers</h2>
         {accounts.loading && <Skeleton className="h-20" />}
         {accounts.error && <ErrorNote>{accounts.error}</ErrorNote>}
-        {accounts.data?.accounts.length === 0 && <p className="text-muted">No number connected yet.</p>}
+        {accounts.data?.accounts.length === 0 && <p className="text-muted">No WhatsApp number connected yet. Once you connect one, it will appear here.</p>}
         <div className="space-y-3">
           {accounts.data?.accounts.map((a) => (
             <AccountCard key={a.id} account={a} canEdit={canEdit} onReconnect={connect} reconnectReady={sdk === "ready" && !!cfg.data?.enabled && !busy}
@@ -239,7 +249,7 @@ function ManualConnect({ onDone }: { onDone: () => Promise<void> }) {
     try {
       const r = await api<{ webhookSubscribed: boolean }>("/whatsapp/accounts", { method: "POST", body: { phoneNumberId: f.phoneNumberId, businessAccountId: f.businessAccountId, accessToken: f.accessToken } });
       form.current?.reset();
-      toast(r.webhookSubscribed ? "WhatsApp number connected" : "Connected, but webhooks need attention. Use Fix it on the number.");
+      toast(r.webhookSubscribed ? "WhatsApp number connected" : "Connected, but there was a problem receiving messages. Click “Fix it” on the number below.");
       await onDone();
     } catch (err) { toast(errorMessage(err), "error"); }
     finally { setBusy(false); }
@@ -247,12 +257,12 @@ function ManualConnect({ onDone }: { onDone: () => Promise<void> }) {
 
   return (
     <details className="rounded-2xl border border-line bg-white p-5">
-      <summary className="cursor-pointer font-semibold">Advanced: connect with an access token</summary>
-      <p className="mb-4 mt-2 text-sm text-muted">For Meta test numbers and developer setups. Customers should use the Connect WhatsApp button above. We check these details with Meta, and your token is stored encrypted and never shown again.</p>
+      <summary className="cursor-pointer font-semibold">For developers and test numbers only</summary>
+      <p className="mb-4 mt-2 text-sm text-muted">Most business owners should use the <b>Connect WhatsApp</b> button above. This option is only for Meta test numbers or technical setups and requires special details from Meta. If you are not sure, please don't use this.</p>
       <form ref={form} onSubmit={submit} className="space-y-4">
-        <Field label="Phone number ID" hint="Meta dashboard > WhatsApp > API setup"><Input name="phoneNumberId" required inputMode="numeric" /></Field>
-        <Field label="WhatsApp Business Account ID"><Input name="businessAccountId" required inputMode="numeric" /></Field>
-        <Field label="Access token" hint="Use a permanent token from a system user, not the 24-hour test token."><Input name="accessToken" type="password" required autoComplete="off" /></Field>
+        <Field label="Phone number ID" hint="Found in your Meta developer dashboard."><Input name="phoneNumberId" required inputMode="numeric" /></Field>
+        <Field label="WhatsApp Business Account ID" hint="Found in your Meta developer dashboard."><Input name="businessAccountId" required inputMode="numeric" /></Field>
+        <Field label="Access token" hint="A long-term access token. It will be stored securely and never shown again."><Input name="accessToken" type="password" required autoComplete="off" /></Field>
         <Button type="submit" loading={busy}>Connect number</Button>
       </form>
     </details>

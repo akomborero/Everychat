@@ -29,7 +29,7 @@ export default function KnowledgePage() {
 
   return (
     <>
-      <PageHeader title="Knowledge" subtitle="Everything the AI is allowed to say. If it isn't here, the AI hands the chat to your team instead of guessing." />
+      <PageHeader title="What your AI should know" subtitle="Add your business details, prices, and answers here. The AI will only use this information to reply to customers. If something isn't here, it will ask your team to help instead of guessing." />
       {!canEdit && <div className="mb-4"><ErrorNote>You have view-only access. Ask an owner or admin to make changes.</ErrorNote></div>}
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map((t) => (
@@ -69,12 +69,13 @@ function ProfileTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <form onSubmit={save} className="max-w-xl space-y-4">
+      <p className="text-sm text-muted">This helps the AI explain who you are and answer basic questions like where you are and when you're open.</p>
       <Field label="Business name"><Input name="name" defaultValue={b.name} required disabled={!canEdit} /></Field>
-      <Field label="Type of business"><Input name="industry" defaultValue={b.industry ?? ""} disabled={!canEdit} /></Field>
-      <Field label="About your business" hint="A few sentences the AI can use to introduce you."><Textarea name="description" defaultValue={b.description ?? ""} disabled={!canEdit} /></Field>
-      <Field label="Address / location"><Input name="address" defaultValue={b.address ?? ""} disabled={!canEdit} /></Field>
-      <Field label="Opening hours" hint="For example: Monday to Saturday, 08:00 to 16:00"><Input name="openingHours" defaultValue={b.openingHours ?? ""} disabled={!canEdit} /></Field>
-      <Field label="Time zone" hint="Booking times use this. It was detected from your browser when you signed up."><Input name="timezone" defaultValue={b.timezone} required disabled={!canEdit} /></Field>
+      <Field label="Type of business" hint="For example: hair salon, restaurant, dental clinic, clothing shop"><Input name="industry" defaultValue={b.industry ?? ""} disabled={!canEdit} placeholder="e.g. Hair salon" /></Field>
+      <Field label="About your business" hint="A short description customers might want to know."><Textarea name="description" defaultValue={b.description ?? ""} disabled={!canEdit} placeholder="e.g. We are a family-run salon offering haircuts, colouring and styling." /></Field>
+      <Field label="Address / location"><Input name="address" defaultValue={b.address ?? ""} disabled={!canEdit} placeholder="e.g. 12 Main Street, Lagos" /></Field>
+      <Field label="Opening hours" hint="Write this the way you'd tell a customer. If you take appointments, you'll also set specific bookable times in Bookings."><Input name="openingHours" defaultValue={b.openingHours ?? ""} disabled={!canEdit} placeholder="e.g. Monday to Saturday, 9:00 AM to 6:00 PM" /></Field>
+      <Field label="Time zone" hint="Used for appointments and times. We detected this from your browser; change it if it's wrong (example: Africa/Lagos)."><Input name="timezone" defaultValue={b.timezone} required disabled={!canEdit} /></Field>
       {canEdit && <Button type="submit" loading={busy}>Save changes</Button>}
     </form>
   );
@@ -110,14 +111,14 @@ function ServicesTab({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-8">
-      <p className="max-w-xl text-muted">These are the only prices the AI will ever quote. Change one here and the AI uses it on the next message.</p>
+      <p className="max-w-xl text-muted">Add everything you sell and how much it costs. The AI will only tell customers prices that are listed here, so keep them up to date.</p>
       {canEdit && (
         <form onSubmit={add} className="grid max-w-3xl gap-3 sm:grid-cols-[1.4fr_1fr_90px_auto] sm:items-end">
-          <Field label="Service or product"><Input name="name" required placeholder="Standard package" /></Field>
-          <Field label="Price"><Input name="price" type="number" step="0.01" min="0" required /></Field>
+          <Field label="Service or product"><Input name="name" required placeholder="e.g. Haircut" /></Field>
+          <Field label="Price"><Input name="price" type="number" step="0.01" min="0" required placeholder="0.00" /></Field>
           <Field label="Currency"><Input name="currency" defaultValue="USD" maxLength={3} /></Field>
           <Button type="submit" loading={adding}>Add</Button>
-          <div className="sm:col-span-4"><Field label="Details (optional)"><Input name="description" placeholder="What's included, how long it takes" /></Field></div>
+          <div className="sm:col-span-4"><Field label="Details (optional)"><Input name="description" placeholder="What's included, how long it takes, or any conditions" /></Field></div>
         </form>
       )}
       {s.loading && <Skeleton className="h-32 max-w-3xl" />}
@@ -210,18 +211,19 @@ function FaqsTab({ canEdit, docs }: { canEdit: boolean; docs: ApiState<{ documen
     <div className="space-y-10">
       <section className="space-y-4">
         <h2 className="text-xl font-bold">Frequently asked questions</h2>
+        <p className="max-w-xl text-sm text-muted">Add questions customers often ask and the answer you'd like the AI to give.</p>
         {canEdit && (
           <form onSubmit={(e) => submit(e, "faq")} className="max-w-3xl space-y-3">
-            <Field label="Question"><Input name="question" required placeholder="Are you open on public holidays?" /></Field>
-            <Field label="Answer"><Textarea name="answer" required className="min-h-20" /></Field>
-            <Button type="submit" loading={busy === "faq"}>Add FAQ</Button>
+            <Field label="Question"><Input name="question" required placeholder="e.g. Do you offer home delivery?" /></Field>
+            <Field label="Answer"><Textarea name="answer" required className="min-h-20" placeholder="Write the answer clearly, just as you'd explain it to a customer." /></Field>
+            <Button type="submit" loading={busy === "faq"}>Add question and answer</Button>
           </form>
         )}
         <DocList docs={docs} kinds={["FAQ"]} canEdit={canEdit} empty="No FAQs yet." />
       </section>
       <section className="space-y-4">
         <h2 className="text-xl font-bold">Policies and notes</h2>
-        <p className="max-w-xl text-muted">Refund rules, what to bring, delivery terms, anything longer than a quick answer.</p>
+        <p className="max-w-xl text-muted">Add important information the AI should know, like refund rules, delivery details, what customers should bring, or how bookings work.</p>
         {canEdit && (
           <form onSubmit={(e) => submit(e, "note")} className="max-w-3xl space-y-3">
             <Field label="Title"><Input name="title" required placeholder="Cancellation policy" /></Field>

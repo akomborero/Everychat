@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Bot, Plus, Send, X } from "lucide-react";
 import { Button, ErrorNote, Field, PageHeader, Pill, Skeleton, Spinner, Textarea, useToast } from "../components/ui";
 import { api, errorMessage } from "../lib/api";
@@ -56,26 +57,47 @@ export default function AiPage() {
   }
   const addRule = () => { const r = newRule.trim(); if (r) { setRules([...rules, r]); setNewRule(""); } };
 
+  const o = overview.data;
   return (
     <>
       <PageHeader
         title="AI assistant"
-        subtitle="Set how it talks, test it on real questions, then switch it on."
+        subtitle="Choose how your assistant talks, test it, then turn it on for your WhatsApp number."
         actions={canEdit && (
           <Button variant={agent.active ? "ghost" : "primary"} loading={toggling} onClick={toggle}>
-            {agent.active ? "Switch AI off" : "Switch AI on"}
+            {agent.active ? "Turn AI off" : "Turn AI on"}
           </Button>
         )}
       />
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <span className={cn("size-2.5 rounded-full", agent.active ? "bg-green" : "bg-muted")} />
-        <span className="font-medium">{agent.active ? "Live: the AI is replying to customers on WhatsApp" : "Off: customers get no automatic replies"}</span>
+        <span className="font-medium">{agent.active ? "On: the AI can reply to customers on WhatsApp" : "Off: customers will not get automatic replies yet"}</span>
+      </div>
+
+      {o && !o.setup.whatsappConnected && (
+        <div className="mb-6 rounded-xl bg-amber-s px-4 py-3 text-sm">
+          <b>Connect WhatsApp first.</b> You can set up and test the AI now, but it can only reply to real customers after you <Link to="/settings" className="font-semibold text-violet underline">connect your WhatsApp Business number</Link>.
+        </div>
+      )}
+
+      <div className="mb-8 grid gap-3 rounded-2xl border border-line bg-white p-4 sm:grid-cols-3">
+        {[
+          { n: 1, t: "Set how it should respond", d: "Choose a tone, add rules, and save." },
+          { n: 2, t: "Test it", d: "Ask questions in the test chat on the right." },
+          { n: 3, t: "Turn it on", d: "When you're happy, turn the AI on." },
+        ].map((s) => (
+          <div key={s.n} className="rounded-xl bg-paper p-3">
+            <div className="mb-1 grid size-6 place-items-center rounded-full bg-violet-s text-xs font-bold text-violet-d">{s.n}</div>
+            <div className="font-semibold">{s.t}</div>
+            <div className="text-sm text-muted">{s.d}</div>
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-6">
           <section>
-            <h2 className="mb-2 text-lg font-bold">Tone</h2>
+            <h2 className="mb-2 text-lg font-bold">How should the AI talk?</h2>
             <div className="grid gap-2 sm:grid-cols-2">
               {TONES.map((t) => (
                 <button key={t.key} disabled={!canEdit} onClick={() => setTone(t.key)} className={cn("rounded-xl border p-3 text-left transition-colors", tone === t.key ? "border-violet bg-violet-s" : "border-line bg-white hover:bg-paper")}>
@@ -86,8 +108,8 @@ export default function AiPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-lg font-bold">Rules</h2>
-            <p className="mb-3 text-sm text-muted">Things the AI must always follow. For example: "Never give discounts" or "Always ask for the customer's phone number".</p>
+            <h2 className="mb-2 text-lg font-bold">Rules the AI must follow</h2>
+            <p className="mb-3 text-sm text-muted">Add things the AI should always do or never do. Examples: "Never give discounts", "Always ask for the customer's name", "If someone asks about delivery, explain our delivery policy".</p>
             <ul className="mb-3 space-y-2">
               {rules.map((r, i) => (
                 <li key={i} className="flex items-center gap-2 rounded-xl border border-line bg-white px-3.5 py-2.5">
@@ -98,17 +120,17 @@ export default function AiPage() {
             </ul>
             {canEdit && (
               <div className="flex gap-2">
-                <input value={newRule} onChange={(e) => setNewRule(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addRule()} placeholder="Add a rule" aria-label="New rule"
+                <input value={newRule} onChange={(e) => setNewRule(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addRule()} placeholder="Type a rule and press Add" aria-label="New rule"
                   className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3.5 py-2.5 outline-none focus:border-violet focus:ring-2 focus:ring-violet/20" />
                 <Button variant="ghost" onClick={addRule} aria-label="Add rule"><Plus size={16} /></Button>
               </div>
             )}
           </section>
 
-          <Field label="Anything else the AI should know" hint="Optional. Extra guidance in your own words.">
-            <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} disabled={!canEdit} maxLength={4000} />
+          <Field label="Anything else the AI should know" hint="Optional. Add extra guidance in your own words, like how you want it to greet people or what to do in special situations.">
+            <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} disabled={!canEdit} maxLength={4000} placeholder="e.g. Greet customers warmly. If they ask for something we don't offer, politely explain and suggest what we do offer." />
           </Field>
-          {canEdit && <Button onClick={save} loading={saving}>Save settings</Button>}
+          {canEdit && <div className="flex flex-wrap gap-2"><Button onClick={save} loading={saving}>Save settings</Button><span className="self-center text-sm text-muted">Save before testing so the test chat uses your latest changes.</span></div>}
         </div>
 
         <TestChat />

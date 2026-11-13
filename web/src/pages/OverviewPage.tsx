@@ -16,12 +16,12 @@ export default function OverviewPage() {
   const o = overview.data;
 
   const steps = o && [
-    { done: o.setup.whatsappConnected, title: "Connect your WhatsApp number", to: "/settings" },
-    { done: o.setup.profile, title: "Describe your business and opening hours", to: "/knowledge" },
-    { done: o.setup.services, title: "Add your services and prices", to: "/knowledge?tab=services" },
-    { done: o.setup.knowledge, title: "Add FAQs or upload documents", to: "/knowledge?tab=faqs" },
-    { done: o.setup.availability, title: "Set the times customers can book", to: "/bookings?tab=times" },
-    { done: o.setup.aiActive, title: "Test the AI, then switch it on", to: "/ai" },
+    { done: o.setup.whatsappConnected, title: "Connect your WhatsApp Business number", desc: "So customers can message you and Everychat can reply.", to: "/settings" },
+    { done: o.setup.profile, title: "Add your business details", desc: "Tell the AI what your business does, where you are and when you're open.", to: "/knowledge" },
+    { done: o.setup.services, title: "Add your services and prices", desc: "The AI will only quote prices you add here.", to: "/knowledge?tab=services" },
+    { done: o.setup.knowledge, title: "Add answers and information", desc: "Add common questions or upload documents like menus, policies or price lists.", to: "/knowledge?tab=faqs" },
+    { done: o.setup.availability, title: "Set times customers can book", desc: "If you take appointments, choose the time slots the AI can offer.", to: "/bookings?tab=times" },
+    { done: o.setup.aiActive, title: "Test and turn on your AI assistant", desc: "Try a few customer questions, then switch it on when you're happy.", to: "/ai" },
   ];
   const doneCount = steps?.filter((s) => s.done).length ?? 0;
 
@@ -54,16 +54,23 @@ export default function OverviewPage() {
       {steps && doneCount < steps.length && (
         <section className="mb-8 rounded-2xl border border-line bg-white p-5">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-bold">Get your AI live</h2>
-            <span className="text-sm text-muted">{doneCount} of {steps.length} done</span>
+            <div>
+              <h2 className="text-lg font-bold">Get your AI assistant ready</h2>
+              <p className="text-sm text-muted">Follow these steps in order. You can come back to any step anytime.</p>
+            </div>
+            <span className="text-sm font-medium text-muted">{doneCount} of {steps.length} done</span>
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line"><div className="h-full bg-violet transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} /></div>
           <ul className="mt-2 divide-y divide-line">
             {steps.map((s) => (
               <li key={s.title}>
-                <Link to={s.to} className="flex items-center gap-3 py-3 hover:text-violet">
-                  <span className={cn("grid size-6 flex-none place-items-center rounded-full border", s.done ? "border-green bg-green text-white" : "border-line")}>{s.done && <Check size={14} strokeWidth={3} />}</span>
-                  <span className={cn("font-medium", s.done && "text-muted line-through")}>{s.title}</span>
+                <Link to={s.to} className="flex items-start gap-3 py-3 hover:text-violet">
+                  <span className={cn("mt-0.5 grid size-6 flex-none place-items-center rounded-full border", s.done ? "border-green bg-green text-white" : "border-line")}>{s.done && <Check size={14} strokeWidth={3} />}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block font-medium", s.done && "text-muted line-through")}>{s.title}</span>
+                    <span className="block text-sm text-muted">{s.desc}</span>
+                  </span>
+                  <span className="text-sm font-semibold text-violet">{s.done ? "View" : "Start"}</span>
                 </Link>
               </li>
             ))}
@@ -133,7 +140,7 @@ export default function OverviewPage() {
         </section>
       )}
       {o && o.customers === 0 && !o.setup.whatsappConnected && (
-        <EmptyState title="No conversations yet">Connect your WhatsApp number and message it from your phone. The conversation will appear here.</EmptyState>
+        <EmptyState title="No conversations yet">Once you connect your WhatsApp Business number, customer messages will appear here. Start with the checklist above to get everything ready.</EmptyState>
       )}
     </>
   );

@@ -22,10 +22,10 @@ const schema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
   // Public address of the web app, used in emailed links. Defaults to the first CORS origin.
   APP_URL: z.string().optional(),
-  APP_NAME: z.string().default("AI Desk"),
+  APP_NAME: z.string().default("Everychat"),
   // Email (Resend). Without a key, emails are skipped and, outside production, printed to the console.
   RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().default("AI Desk <onboarding@resend.dev>"),
+  EMAIL_FROM: z.string().default("Everychat <onboarding@resend.dev>"),
   // Comma-separated emails allowed to open the platform admin panel.
   PLATFORM_ADMIN_EMAILS: z.string().default(""),
   // Sign-in cookie. Use "lax" when the web app and API share a site (for example app.example.com and api.example.com,

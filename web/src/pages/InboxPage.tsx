@@ -164,7 +164,7 @@ function Thread({ id, onChanged, onBack }: { id: string; onChanged: () => void; 
 
       {canReply && !closed && (
         <div className="border-t border-line p-3">
-          {windowClosed && <p className="mb-2 text-sm text-amber">WhatsApp only allows free-form replies within 24 hours of the customer's last message. This one may be rejected.</p>}
+          {windowClosed && <p className="mb-2 text-sm text-amber">It's been more than 24 hours since the customer's last message. WhatsApp may not allow a normal reply now. If sending fails, you may need to wait for the customer to message again.</p>}
           {c.aiEnabled && <p className="mb-2 text-sm text-muted">Sending a reply pauses the AI for this conversation.</p>}
           <div className="flex gap-2">
             <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}

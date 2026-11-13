@@ -18,7 +18,10 @@ async function graph(path: string, token: string, init?: { method?: string; body
 /** Confirms the token can see this phone number, so bad credentials fail at connect time, not on the first customer. */
 export async function verifyPhoneNumber(phoneNumberId: string, token: string) {
   const r = await graph(`/${phoneNumberId}?fields=display_phone_number,verified_name`, token);
-  if (!r.ok) throw new AppError(400, r.json?.error?.message ?? "Meta rejected these credentials");
+  if (!r.ok) {
+    const msg = r.json?.error?.message as string | undefined;
+    throw new AppError(400, msg ? `WhatsApp couldn't verify this number: ${msg}` : "We couldn't verify this WhatsApp number. Please try connecting again.");
+  }
   return { displayPhone: r.json.display_phone_number as string, verifiedName: r.json.verified_name as string };
 }
 
@@ -50,10 +53,13 @@ export async function exchangeCode(code: string) {
   const text = await res.text();
   let json: any = {};
   try { json = JSON.parse(text); } catch { /* some responses are a bare token */ }
-  if (!res.ok) throw new AppError(400, json?.error?.message ?? "Meta rejected the authorization. The code only lasts 30 seconds, so please try again.");
+  if (!res.ok) {
+    const msg = json?.error?.message as string | undefined;
+    throw new AppError(400, msg ? `We couldn't finish connecting to WhatsApp: ${msg}` : "We couldn't finish connecting to WhatsApp. The connection step timed out, so please try again.");
+  }
 
   const token: string | undefined = json.access_token ?? (text && !text.trim().startsWith("{") ? text.trim() : undefined);
-  if (!token) throw new AppError(502, "Meta did not return an access token");
+  if (!token) throw new AppError(502, "We couldn't finish connecting to WhatsApp. Please try again.");
   const expiresAt = typeof json.expires_in === "number" && json.expires_in > 0 ? new Date(Date.now() + json.expires_in * 1000) : null;
   return { token, expiresAt };
 }
@@ -74,6 +80,9 @@ export async function sendText(businessId: string, to: string, body: string, acc
       text: { body, preview_url: false },
     },
   });
-  if (!r.ok) throw new AppError(502, r.json?.error?.message ?? "WhatsApp rejected the message");
+  if (!r.ok) {
+    const msg = r.json?.error?.message as string | undefined;
+    throw new AppError(502, msg ? `WhatsApp couldn't send this message: ${msg}` : "WhatsApp couldn't send this message. Please try again.");
+  }
   return { waMessageId: r.json?.messages?.[0]?.id as string | undefined };
 }
