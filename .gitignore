@@ -1,0 +1,4 @@
+# Local environment files contain production secrets and must never be committed.
+/api/.env
+/web/.env
+/web/.env.*

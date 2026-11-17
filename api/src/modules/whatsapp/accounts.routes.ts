@@ -7,7 +7,7 @@ import { prisma, tenantDb } from "../../lib/prisma";
 import { decrypt, encrypt } from "../../lib/crypto";
 import { AppError, ah } from "../../lib/errors";
 import { requireAuth, requireRole } from "../../middleware/auth";
-import { exchangeCode, registerPhone, subscribeApp, unsubscribeApp, verifyPhoneNumber } from "./whatsapp.client";
+import { discoverPhoneNumber, exchangeCode, registerPhone, subscribeApp, unsubscribeApp, verifyPhoneNumber } from "./whatsapp.client";
 
 export const accountRoutes = Router();
 accountRoutes.use(requireAuth);
@@ -46,8 +46,11 @@ accountRoutes.get("/signup-config", (_req, res) => {
  */
 const signupSchema = z.object({
   code: z.string().min(10).max(4000),
-  phoneNumberId: z.string().regex(/^\d{5,30}$/),
+  // Meta sometimes omits this in the v4 session message. We look it up from the WABA below.
+  phoneNumberId: z.string().regex(/^\d{5,30}$/).nullish(),
   wabaId: z.string().regex(/^\d{5,30}$/),
+  // Coexistence onboarding: the number is already registered, so skip registration.
+  coexistence: z.boolean().optional().default(false),
 });
 
 accountRoutes.post(
@@ -59,17 +62,27 @@ accountRoutes.post(
     const { businessId, userId } = req.auth!;
     const d = signupSchema.parse(req.body);
 
-    // Unscoped on purpose: we must see whether ANOTHER business already owns this number.
-    const existing = await prisma.whatsappAccount.findUnique({ where: { phoneNumberId: d.phoneNumberId } });
-    if (existing && existing.businessId !== businessId) throw new AppError(409, "This WhatsApp number is already connected to another business");
-
     // The code lives 30 seconds, so exchange it before anything slow.
     const { token, expiresAt } = await exchangeCode(d.code);
-    const info = await verifyPhoneNumber(d.phoneNumberId, token); // proves this token really controls this number
+
+    // Meta can finish the popup without a phone_number_id. Discover it with the new token.
+    let phoneNumberId = d.phoneNumberId ?? null;
+    if (!phoneNumberId) {
+      const numbers = await discoverPhoneNumber(d.wabaId, token);
+      phoneNumberId = numbers[0]?.phoneNumberId ?? null;
+      if (!phoneNumberId) throw new AppError(400, "Meta connected your WhatsApp account but didn't include a phone number. Go back to the Facebook window, add a number, and try again.");
+    }
+
+    // Unscoped on purpose: we must see whether ANOTHER business already owns this number.
+    const existing = await prisma.whatsappAccount.findUnique({ where: { phoneNumberId } });
+    if (existing && existing.businessId !== businessId) throw new AppError(409, "This WhatsApp number is already connected to another business");
+
+    const info = await verifyPhoneNumber(phoneNumberId, token); // proves this token really controls this number
 
     const pin = existing?.pinEnc ? decrypt(existing.pinEnc) : newPin();
     const subscribed = await subscribeApp(d.wabaId, token);
-    const reg = await registerPhone(d.phoneNumberId, token, pin);
+    // Coexistence numbers are already registered with WhatsApp, so skip that step.
+    const reg = d.coexistence ? ({ ok: true } as const) : await registerPhone(phoneNumberId, token, pin);
 
     const data = {
       displayPhone: info.displayPhone,
@@ -77,7 +90,7 @@ accountRoutes.post(
       businessAccountId: d.wabaId,
       accessTokenEnc: encrypt(token),
       tokenExpiresAt: expiresAt,
-      pinEnc: encrypt(pin),
+      pinEnc: d.coexistence ? null : encrypt(pin),
       status: "ACTIVE" as const,
       registered: reg.ok,
       webhookSubscribed: subscribed,
@@ -85,12 +98,12 @@ accountRoutes.post(
     };
     const db = tenantDb(businessId);
     const account = await db.whatsappAccount.upsert({
-      where: { phoneNumberId: d.phoneNumberId },
-      create: { businessId, phoneNumberId: d.phoneNumberId, ...data },
+      where: { phoneNumberId },
+      create: { businessId, phoneNumberId, ...data },
       update: data,
       select: SAFE,
     });
-    await db.auditLog.create({ data: { businessId, userId, action: "whatsapp.embedded_signup", metadata: { phoneNumberId: d.phoneNumberId, registered: reg.ok, subscribed } } });
+    await db.auditLog.create({ data: { businessId, userId, action: "whatsapp.embedded_signup", metadata: { phoneNumberId, registered: reg.ok, subscribed } } });
     res.status(201).json({ account });
   }),
 );

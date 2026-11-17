@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyPhoneNumber = verifyPhoneNumber;
+exports.discoverPhoneNumber = discoverPhoneNumber;
 exports.subscribeApp = subscribeApp;
 exports.unsubscribeApp = unsubscribeApp;
 exports.registerPhone = registerPhone;
@@ -29,6 +30,18 @@ async function verifyPhoneNumber(phoneNumberId, token) {
     }
     return { displayPhone: r.json.display_phone_number, verifiedName: r.json.verified_name };
 }
+/** Meta can finish the popup without a phone_number_id. Find the number from the WABA instead. */
+async function discoverPhoneNumber(wabaId, token) {
+    const r = await graph(`/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`, token);
+    if (!r.ok) {
+        const msg = r.json?.error?.message;
+        throw new errors_1.AppError(400, msg ? `WhatsApp couldn't list your numbers: ${msg}` : "We couldn't find the phone number Meta connected. Please try again.");
+    }
+    const numbers = Array.isArray(r.json?.data) ? r.json.data : [];
+    return numbers
+        .filter((n) => n?.id)
+        .map((n) => ({ phoneNumberId: String(n.id), displayPhone: n.display_phone_number, verifiedName: n.verified_name }));
+}
 /** A WhatsApp Business Account must be subscribed to our app or Meta will not send its webhooks. */
 async function subscribeApp(wabaId, token) {
     const r = await graph(`/${wabaId}/subscribed_apps`, token, { method: "POST" });
@@ -41,7 +54,13 @@ async function unsubscribeApp(wabaId, token) {
 /** Cloud API numbers must be registered with a two-step verification PIN before they can send or receive. */
 async function registerPhone(phoneNumberId, token, pin) {
     const r = await graph(`/${phoneNumberId}/register`, token, { method: "POST", body: { messaging_product: "whatsapp", pin } });
-    return r.ok ? { ok: true } : { ok: false, error: r.json?.error?.message ?? "Meta could not register this number" };
+    if (r.ok)
+        return { ok: true };
+    const error = r.json?.error?.message ?? "Meta could not register this number";
+    // An already working number is fine - it simply doesn't need registering a second time.
+    if (/already registered|already been registered/i.test(error))
+        return { ok: true };
+    return { ok: false, error };
 }
 /**
  * Embedded Signup returns a one-time code that expires after 30 seconds. Exchange it for the

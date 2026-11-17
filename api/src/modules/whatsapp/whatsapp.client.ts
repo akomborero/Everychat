@@ -25,6 +25,19 @@ export async function verifyPhoneNumber(phoneNumberId: string, token: string) {
   return { displayPhone: r.json.display_phone_number as string, verifiedName: r.json.verified_name as string };
 }
 
+/** Meta can finish the popup without a phone_number_id. Find the number from the WABA instead. */
+export async function discoverPhoneNumber(wabaId: string, token: string) {
+  const r = await graph(`/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name`, token);
+  if (!r.ok) {
+    const msg = r.json?.error?.message as string | undefined;
+    throw new AppError(400, msg ? `WhatsApp couldn't list your numbers: ${msg}` : "We couldn't find the phone number Meta connected. Please try again.");
+  }
+  const numbers = Array.isArray(r.json?.data) ? r.json.data : [];
+  return numbers
+    .filter((n: any) => n?.id)
+    .map((n: any) => ({ phoneNumberId: String(n.id), displayPhone: n.display_phone_number, verifiedName: n.verified_name }));
+}
+
 /** A WhatsApp Business Account must be subscribed to our app or Meta will not send its webhooks. */
 export async function subscribeApp(wabaId: string, token: string) {
   const r = await graph(`/${wabaId}/subscribed_apps`, token, { method: "POST" });
@@ -39,7 +52,11 @@ export async function unsubscribeApp(wabaId: string, token: string) {
 /** Cloud API numbers must be registered with a two-step verification PIN before they can send or receive. */
 export async function registerPhone(phoneNumberId: string, token: string, pin: string) {
   const r = await graph(`/${phoneNumberId}/register`, token, { method: "POST", body: { messaging_product: "whatsapp", pin } });
-  return r.ok ? ({ ok: true } as const) : ({ ok: false, error: (r.json?.error?.message as string | undefined) ?? "Meta could not register this number" } as const);
+  if (r.ok) return { ok: true } as const;
+  const error = (r.json?.error?.message as string | undefined) ?? "Meta could not register this number";
+  // An already working number is fine - it simply doesn't need registering a second time.
+  if (/already registered|already been registered/i.test(error)) return { ok: true } as const;
+  return { ok: false, error } as const;
 }
 
 /**
