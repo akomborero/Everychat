@@ -36,10 +36,10 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
     loadFacebookSdk(c.appId, c.graphVersion).then(() => setSdk("ready")).catch((e) => { setSdk("failed"); setSdkError(errorMessage(e)); });
   }, [cfg.data]);
 
-  const connect = async () => {
+  const connect = async (existingNumber = false) => {
     if (!cfg.data?.configId) return;
     setPhase({ kind: "authorizing" });
-    const outcome = await launchEmbeddedSignup(cfg.data.configId);
+    const outcome = await launchEmbeddedSignup(cfg.data.configId, { existingNumber });
     if (outcome.kind === "cancelled") { setPhase({ kind: "idle" }); toast("Connection cancelled. Nothing was changed."); return; }
     if (outcome.kind !== "done") { setPhase({ kind: "problem", message: outcome.message }); return; }
 
@@ -47,7 +47,12 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
     try {
       const r = await api<{ account: WhatsappAccount }>("/whatsapp/accounts/signup", {
         method: "POST",
-        body: { code: outcome.code, phoneNumberId: outcome.phoneNumberId, wabaId: outcome.wabaId },
+        body: {
+          code: outcome.code,
+          phoneNumberId: outcome.phoneNumberId,
+          wabaId: outcome.wabaId,
+          coexistence: outcome.coexistence,
+        },
       });
       setPhase({ kind: "done", account: r.account, openedAt: Date.now() });
       await accounts.reload(); await overview.reload();
@@ -73,7 +78,7 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
               <div className="mt-5 rounded-xl bg-violet-s p-4 text-sm">
                 <p className="font-semibold text-violet-d">Before you start</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-ink">
-                  <li>Use a phone number that is <b>not</b> currently being used in the WhatsApp or WhatsApp Business app.</li>
+                  <li>Use a new number, or an existing number already in the WhatsApp Business app (choose the option below).</li>
                   <li>Have access to that number so you can receive a text or phone call to confirm it.</li>
                   <li>After connecting, you will need to add a payment method in WhatsApp Manager (we'll remind you).</li>
                 </ul>
@@ -83,10 +88,15 @@ export function WhatsAppTab({ canEdit }: { canEdit: boolean }) {
                   <li key={t} className="flex items-start gap-3"><span className="mt-0.5 grid size-7 flex-none place-items-center rounded-full bg-violet-s text-sm font-bold text-violet-d">{i + 1}</span><span>{t}</span></li>
                 ))}
               </ol>
-              <Button className="mt-6 w-full sm:w-auto" onClick={connect} disabled={busy || sdk !== "ready"}>
-                {busy ? <Spinner /> : <MessageCircle size={18} />}
-                {phase.kind === "authorizing" ? "Finish in the Facebook window…" : phase.kind === "finishing" ? "Setting up your number…" : sdk === "loading" ? "Getting ready…" : "Connect WhatsApp"}
-              </Button>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button onClick={() => connect()} disabled={busy || sdk !== "ready"}>
+                  {busy ? <Spinner /> : <MessageCircle size={18} />}
+                  {phase.kind === "authorizing" ? "Finish in the Facebook window…" : phase.kind === "finishing" ? "Setting up your number…" : sdk === "loading" ? "Getting ready…" : "Connect WhatsApp"}
+                </Button>
+                <Button variant="ghost" onClick={() => connect(true)} disabled={busy || sdk !== "ready"}>
+                  Use an existing WhatsApp Business number
+                </Button>
+              </div>
               {sdk === "failed" && <div className="mt-3"><ErrorNote>{sdkError ?? "We couldn't load the Facebook connection window. Check your internet connection, allow pop-ups for this site, and try again."}</ErrorNote></div>}
               {phase.kind === "problem" && (
                 <div className="mt-4"><ErrorNote>{phase.message}</ErrorNote><p className="mt-2 text-sm text-muted">Nothing was saved. You can try again. If it keeps happening, contact support or the person who set up Everychat for your business.</p></div>
